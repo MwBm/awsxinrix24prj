@@ -1,16 +1,108 @@
-## AskRON - the Reliable Option for Navigation, a chrome extension for AI assisted browsing. Powered by AWS Bedrock's Claude Sonnet and easy to access with Google's web extension capabilities.
+# AskRON
 
-## Inspiration
-The need for seamless, AI-powered assistance while browsing the web without switching between multiple tabs or applications.
-## What it does
-A Chrome extension that leverages Claude 3 Sonnet through AWS Bedrock to analyze web pages and answer questions in real-time, providing AI assistance directly within the browser.
-## How we built it
-Built using Chrome's Extension Manifest V3, JavaScript for frontend and background services, flask for backend, and AWS Bedrock API integration for accessing Claude's capabilities through a clean popup interface.
-## Challenges We ran into
-Implementing secure AWS authentication and managing the complex state between the popup, background service worker, and content scripts while maintaining a smooth user experience.
-## Accomplishments that we're proud of
-Successfully created a seamless integration between Chrome's extension framework and AWS Bedrock's powerful AI capabilities while maintaining a simple, user-friendly interface.
-## What we learned
-Gained deep insights into Chrome's Extension API architecture, AWS Bedrock integration, and the complexities of building secure, scalable AI-powered browser extensions.
-## What's next for AskRon
-Planning to add context menu integration, custom styling options, conversation history, and support for more specialized use cases like research assistance and content summarization.
+AskRON is a Chrome extension + Flask backend that answers navigation questions about the current website using AWS Bedrock (Claude Sonnet).
+
+## How it works
+
+1. You open the extension popup and enter a question.
+2. The extension reads the active tab URL.
+3. It sends a POST request to `http://127.0.0.1:5000/converse` with:
+   - `user_message`
+   - `web_name` (current tab URL)
+   - `format` (`plain`, `short`, or `steps`)
+4. Flask calls Bedrock `converse_stream`, builds the text response, and returns JSON to the popup.
+
+## Project structure
+
+- `converse.py` — Flask API and Bedrock integration
+- `requirements.txt` — Python dependencies
+- `flaskapp.flaskenv` — Flask app entrypoint (`FLASK_APP=converse.py`)
+- `chrome-extension/manifest.json` — Chrome extension manifest
+- `chrome-extension/popup.html` — popup UI
+- `chrome-extension/popup.js` — popup logic and POST request
+- `chrome-extension/background.js` — background service worker
+- `chrome-extension/icons/` — extension icon assets
+
+## Prerequisites
+
+- Python 3.10+
+- Google Chrome
+- AWS account access to Bedrock model `anthropic.claude-3-sonnet-20240229-v1:0` (or custom model)
+
+## Setup
+
+1. Install Python dependencies:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. Create a `.env` file in the project root:
+
+   ```env
+   AWS_ACCESS_KEY_ID=your_key
+   AWS_SECRET_ACCESS_KEY=your_secret
+   AWS_REGION=us-west-2
+   BEDROCK_MODEL_ID=anthropic.claude-3-sonnet-20240229-v1:0
+   ```
+
+3. Run Flask:
+
+   ```bash
+   flask run
+   ```
+
+   Or:
+
+   ```bash
+   python converse.py
+   ```
+
+4. Load the extension in Chrome:
+   - Open `chrome://extensions`
+   - Enable **Developer mode**
+   - Click **Load unpacked**
+   - Select the `chrome-extension/` folder
+
+## API contract
+
+### Request (`POST /converse`)
+
+```json
+{
+  "user_message": "How do I find pricing?",
+  "web_name": "https://example.com",
+  "format": "short"
+}
+```
+
+### Success response
+
+```json
+{
+  "success": true,
+  "response": "..."
+}
+```
+
+### Error response
+
+```json
+{
+  "success": false,
+  "error": "..."
+}
+```
+
+## Notes
+
+- The extension can only call `http://127.0.0.1:5000/*` by default (`host_permissions` in `manifest.json`).
+- Icon paths in `manifest.json` are resolved from `chrome-extension/icons/`.
+- Current popup submits on button click; Enter-key form submission is not implemented yet.
+
+## Possible improvements
+
+- Add Enter-key submission in popup UX.
+- Add response timeout/retry handling in backend.
+- Move to AWS profile/role auth instead of static keys in `.env`.
+- Add unit tests for `/converse` and popup fetch handling.

@@ -1,13 +1,11 @@
 from flask import Flask, request, jsonify
 import os
 import boto3
-from botocore.exceptions import ClientError
 from dotenv import load_dotenv
-import requests
 
 app = Flask(__name__)
 
-def process_user_message(user_message, web_name):
+def process_user_message(user_message, web_name, response_format):
     returnVal = """
     
     When responding, provide a direct URL if it can take the user to the relevant page on the website. If no such URL exists, give a detailed explanation of how to find the information on the site. 
@@ -26,7 +24,7 @@ def process_user_message(user_message, web_name):
     **Output**: "I could not find this webpage, please ask another question!"
 
     Now, answer the question:
-    """ + "The question is: " + user_message + " website: " + web_name
+    """ + "The question is: " + user_message + " website: " + web_name + " response format: " + response_format
 
 
     return returnVal
@@ -36,22 +34,18 @@ def get_input():
     data = request.get_json()
     user_message = data.get('user_message')
     web_name = data.get('web_name')
-    callback_url = data.get("callback_url")
+    response_format = data.get("format", "plain")
 
-    # Print the input values to the console for debugging
     print(f"Received user_message: {user_message}")
     print(f"Received web_name: {web_name}")
-    print(f"Received web_name: {callback_url}")
+    print(f"Received format: {response_format}")
 
+    if not user_message or not web_name:
+        return jsonify({"success": False, "error": "Missing user_message or web_name"}), 400
 
-    # Check if either user_message or web_name is missing
-    if not user_message or not web_name or not callback_url:
-        return jsonify({"error": "Missing user_message or web_name"}), 400
+    model_id = os.getenv("BEDROCK_MODEL_ID", "anthropic.claude-3-sonnet-20240229-v1:0")
 
-    model_id = "anthropic.claude-3-sonnet-20240229-v1:0"    
-
-    # Process the data (example: just echoing the received message)
-    processed_message = process_user_message(user_message, web_name)
+    processed_message = process_user_message(user_message, web_name, response_format)
     conversation = [
         {
             "role": "user",
@@ -65,31 +59,19 @@ def get_input():
             inferenceConfig={"maxTokens": 512, "temperature": 0.6, "topP": 0.6},
         )
 
-        # Extract and build the streamed response text in real-time
         response_text = ""
         for chunk in streaming_response.get("stream", []):
             if "contentBlockDelta" in chunk:
                 response_text += chunk["contentBlockDelta"]["delta"]["text"]
 
-        # Send the response to the Chrome extension
-        response = requests.post(callback_url, json={"response": response_text})
-        print(f"Sent response to callback URL: {response.status_code}")
-        return jsonify({"response": response_text})
+        return jsonify({"success": True, "response": response_text})
 
     except (Exception) as e:
-        return jsonify({"error": str(e)})
-    
-@app.route('/callback', methods=['POST'])
-def callback():
-    data = request.json
-    print(f"Callback received data: {data}")
-    # Handle the callback data as needed
-    return jsonify({"status": "received"})
+        return jsonify({"success": False, "error": str(e)}), 500
 
 if __name__ == '__main__':
     load_dotenv()
 
-    # Put your AWS credentials in a .env file
     access_key_id = os.getenv("AWS_ACCESS_KEY_ID")
     secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY")
 
@@ -97,7 +79,7 @@ if __name__ == '__main__':
         service_name="bedrock-runtime",
         aws_access_key_id=access_key_id,
         aws_secret_access_key=secret_access_key,
-        region_name="us-west-2",
+        region_name=os.getenv("AWS_REGION", "us-west-2"),
     )
 
     app.run(debug=True)
