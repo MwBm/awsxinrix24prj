@@ -10,6 +10,12 @@
     <h1>AskRON!</h1>
     <label for="userInput">Ask RON any question about this website, and he'll answer it!</label>
     <input type="text" id="userInput" placeholder="Ask here...">
+    <label for="format">Response format</label>
+    <select id="format">
+      <option value="plain" selected>Plain text</option>
+      <option value="short">Short answer</option>
+      <option value="steps">Step-by-step</option>
+    </select>
     <button id="submitButton">Submit</button>
     <p id="output" class="hidden"></p>
   </div>

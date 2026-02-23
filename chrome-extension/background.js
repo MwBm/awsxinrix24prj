@@ -1,5 +1,3 @@
-
-
 chrome.runtime.onInstalled.addListener(() => {
   console.log("Chrome extension installed");
 });
@@ -12,7 +10,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (currentUrl) {
         console.log("Current Page URL:", currentUrl);
 
-        // Save the URL in Chrome storage
         chrome.storage.local.set({ currentPageUrl: currentUrl }, () => {
           console.log("URL saved to storage:", currentUrl);
           sendResponse({ url: currentUrl, status: "success" });
@@ -22,7 +19,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ url: null, status: "failed" });
       }
     });
-    return true; // Keep the message channel open for async response
+    return true;
   }
 });
 

@@ -1,25 +1,24 @@
 document.addEventListener("DOMContentLoaded", function () {
   const inputField = document.getElementById("userInput");
+  const formatField = document.getElementById("format");
   const submitButton = document.getElementById("submitButton");
   const outputParagraph = document.getElementById("output");
-  const userForm = document.getElementById("userForm");
 
-  function handleSubmit(event) {
-    event.preventDefault(); // Prevent default form submission
+  async function handleSubmit(event) {
+    event.preventDefault();
 
-    const userInput = inputField.value; // Get user input
+    const userInput = inputField.value.trim();
+    const responseFormat = formatField.value;
 
     if (userInput) {
       outputParagraph.textContent = "Processing...";
       outputParagraph.classList.remove("hidden");
 
-      // Get the current tab URL
-      chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-        const currentUrl = tabs[0].url;
-        const callbackUrl = "http://127.0.0.1:5000/callback"; // Replace with your actual callback URL
+      try {
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        const currentUrl = tabs[0]?.url;
 
-        // Send input to Flask backend
-        fetch("http://127.0.0.1:5000/converse", {
+        const response = await fetch("http://127.0.0.1:5000/converse", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -27,23 +26,31 @@ document.addEventListener("DOMContentLoaded", function () {
           body: JSON.stringify({
             user_message: userInput,
             web_name: currentUrl,
-            callback_url: callbackUrl
+            format: responseFormat,
           }),
-        })
-          .then((response) => response.json())
-          .then((data) => {
-              console.log(data)
-              outputParagraph.textContent = "Response: " + data.response;
-          })
-          .catch((error) => {
-            outputParagraph.textContent = "Error sending data to Flask: " + error;
-          });
-      });
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          const errorMessage = data.error || "Request failed";
+          outputParagraph.textContent = "Error: " + errorMessage;
+          return;
+        }
+
+        if (!data.response) {
+          outputParagraph.textContent = "Error: Empty response from server";
+          return;
+        }
+
+        outputParagraph.textContent = "Response: " + data.response;
+      } catch (error) {
+        outputParagraph.textContent = "Error sending data to Flask: " + error;
+      }
     } else {
       outputParagraph.classList.add("hidden");
     }
 
-    // Clear input field after submission
     inputField.value = "";
   }
 
